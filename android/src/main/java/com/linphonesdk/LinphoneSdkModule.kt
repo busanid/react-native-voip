@@ -688,8 +688,8 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
       val previewVideoViewId = options.getInt("previewVideoViewId")
       val remoteVideoViewId = options.getInt("remoteVideoViewId")
       val recordFilePath = options.getString("recordFilePath")
-      core.nativePreviewWindowId = currentActivity?.findViewById(previewVideoViewId)
-      core.nativeVideoWindowId = currentActivity?.findViewById(remoteVideoViewId)
+      core.nativePreviewWindowId = reactApplicationContext.currentActivity?.findViewById(previewVideoViewId)
+      core.nativeVideoWindowId = reactApplicationContext.currentActivity?.findViewById(remoteVideoViewId)
       if(needAudio) {
         //_requestPermissions("audio");
       }
@@ -729,8 +729,8 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
       val remoteVideoViewId = options.getInt("remoteVideoViewId")
       val recordFilePath = options.getString("recordFilePath")
       val callId = options.getString("callId") ?: throw Exception("callId必须传入")
-      core.nativePreviewWindowId = currentActivity?.findViewById(previewVideoViewId)
-      core.nativeVideoWindowId = currentActivity?.findViewById(remoteVideoViewId)
+      core.nativePreviewWindowId = reactApplicationContext.currentActivity?.findViewById(previewVideoViewId)
+      core.nativeVideoWindowId = reactApplicationContext.currentActivity?.findViewById(remoteVideoViewId)
       //TODO 这里不能直接拿currentCall，如果是多账户的话
       val call = core.getCallByCallid(callId) ?: throw Exception("主动接通失败，不存在的callId")
       val callParams = call.params
@@ -1240,7 +1240,7 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun isIgnoringBatteryOptimizations(promise: Promise) {
     try {
-      val powerManager = reactApplicationContext.getSystemService(ReactApplicationContext.POWER_SERVICE) as PowerManager
+      val powerManager = reactApplicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
       promise.resolve(powerManager.isIgnoringBatteryOptimizations(reactApplicationContext.packageName))
     } catch (err: Exception) {
       promise.reject("获取电源是否被优化状态失败", err);
