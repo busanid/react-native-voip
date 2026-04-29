@@ -80,8 +80,8 @@ dependencies {
   implementation "com.facebook.react:react-native:+"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 
-  debugImplementation "org.linphone:linphone-sdk-android-debug:5.3.8"
-  releaseImplementation "org.linphone:linphone-sdk-android:5.3.8"
+  debugImplementation "org.linphone:linphone-sdk-android-debug:5.4.0"
+  releaseImplementation "org.linphone:linphone-sdk-android:5.4.0"
   implementation 'androidx.media:media:1.2.0'
   //implementation "org.linphone:linphone-sdk-android:5.1+"
 }

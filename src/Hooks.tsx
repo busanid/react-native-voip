@@ -1,6 +1,9 @@
-import React, { Dispatch, ReactNode, createContext, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import React, { Dispatch, ReactNode, createContext, useContext, useEffect, useReducer, useRef, useState, useCallback } from 'react';
 import { findNodeHandle, Platform, AppState } from 'react-native';
 import { UserAgent, Configuration as sipConfig } from './index';
+import { buildPushContactParams, parsePushContactParams } from './PushNotification';
+import { useCallScreening } from './CallScreening';
+export { useCallScreening };
 import Session from './Session';
 import type { Target, isOnHoldResult } from './Session';
 import { check, PERMISSIONS, RESULTS, openSettings, PermissionStatus, request } from 'react-native-permissions';
@@ -1346,16 +1349,59 @@ export function useChatRoom(chatRoom: ChatRoom) {
 }
 
 /**
- * 
+ * Hook for push notification registration.
+ *
+ * Handles building the SIP contact params string and applying it to a
+ * specific SIP account so the server can route incoming calls via push.
+ *
+ * @example
+ * const { registerPushToken, clearPushToken, pushConfig } = usePushNotification('account1');
+ *
+ * // Call after receiving a FCM/APNs token
+ * await registerPushToken({ provider: 'fcm', param: 'mySenderId', prid: fcmToken });
+ */
+export function usePushNotification(agentId: string) {
+  const { agents } = useContext(SipContext);
+  const agent = agents.find((a) => a.id === agentId);
+
+  const [pushConfig, setPushConfig] = useState(() => {
+    if (!agent) return null;
+    return parsePushContactParams(agent.getConfiguration().contactParams ?? '');
+  });
+
+  const registerPushToken = useCallback(
+    async (config: Parameters<typeof buildPushContactParams>[0]) => {
+      if (!agent) {
+        console.warn('usePushNotification: agent not found for id', agentId);
+        return;
+      }
+      const contactParams = buildPushContactParams(config);
+      await agent.setContactParameters(contactParams);
+      setPushConfig(config);
+    },
+    [agent, agentId]
+  );
+
+  const clearPushToken = useCallback(async () => {
+    if (!agent) return;
+    await agent.setContactParameters('');
+    setPushConfig(null);
+  }, [agent]);
+
+  return { pushConfig, registerPushToken, clearPushToken };
+}
+
+/**
+ *
  * const { isRegister, onSession } = useUserAgent('5774545');
- * 
+ *
  * if(isRegister) {
  *     showOline();
  * }
- * 
+ *
  * onSession((event) => {
- *     
+ *
  * });
- * 
- * 
+ *
+ *
  */

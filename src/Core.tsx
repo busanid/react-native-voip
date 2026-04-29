@@ -1,295 +1,272 @@
-import { NativeModules, Platform, NativeEventEmitter } from "react-native";
+import { NativeModules, Platform, NativeEventEmitter } from 'react-native';
 import EventEmitter from 'events';
-//import Session from "./Session";
 import CallLog from './CallLog';
-import type { UserAgent } from "react-native-linphone-sdk";
+import type {
+  AudioDevice,
+  AudioDeviceKind,
+  CurrentAudioDevices,
+  CallLogEntry,
+  GroupedCallLog,
+} from './types';
+import type { UserAgent } from './index';
 
 const LINKING_ERROR =
-    `The package 'react-native-linphone-sdk' doesn't seem to be linked. Make sure: \n\n` +
-    Platform.select({ ios: "- You have run 'pod install'\n", default: '' }) +
-    '- You rebuilt the app after installing the package\n' +
-    '- You are not using Expo Go\n';
+  `The package 'react-native-voip' doesn't seem to be linked. Make sure: \n\n` +
+  Platform.select({ ios: "- You have run 'pod install'\n", default: '' }) +
+  '- You rebuilt the app after installing the package\n' +
+  '- You are not using Expo Go\n';
 
 const LinphoneSdk = NativeModules.LinphoneSdk
-    ? NativeModules.LinphoneSdk
-    : new Proxy(
-        {},
-        {
-            get() {
-                throw new Error(LINKING_ERROR);
-            },
-        }
-    );
+  ? NativeModules.LinphoneSdk
+  : new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(LINKING_ERROR);
+      },
+    }
+  );
 
-type registerEvent = {
-    originator: String,
-    message: String;
-    //session: Session
+export type { AudioDeviceKind };
+
+/** Union of all audio device kinds — use AudioDeviceKind from types.ts for strict typing */
+export type AudioDeviceType = AudioDeviceKind;
+
+export interface CallStateChangedEvent {
+  callId: string;
+  eventName: string;
+  remoteAddress?: string;
+  displayName?: string;
+  remoteUsername?: string;
+  localAddress?: string;
+  originator?: 'local' | 'remote';
+  data?: { cause?: string };
 }
 
-export type callStateChangeEvent = {
-    callId: String,
-    eventName: String
+export interface RegisterEvent {
+  id: string;
+  message: string;
+  username: string;
+  domain: string;
 }
-
-export type AudioDeviceType = "Earpiece" | "Speaker" | "Bluetooth" | "Headset";
 
 class Core extends EventEmitter {
+  private linphoneNativeEventEmitter: NativeEventEmitter;
+  private isInit = false;
 
-    private linphoneNativeEventEmitter: NativeEventEmitter;
-    private isInit = false;
-    //private sessions: Array<Session>;
+  constructor() {
+    super();
+    this.linphoneNativeEventEmitter = new NativeEventEmitter(LinphoneSdk);
+    this.triggerRegister();
+    this.triggerCallStateChanged();
+    this.triggerCalllogUpdated();
+    this.triggerAudioDeviceChanged();
+    this.triggerChat();
+  }
 
-    constructor() {
-        super();
-        this.linphoneNativeEventEmitter = new NativeEventEmitter(LinphoneSdk);
-        this.triggerRegister();
-        this.triggerCallStateChanged();
-        this.triggerCalllogUpdated();
-        this.triggerAudioDeviceChanged();
-        this.triggerChat();
-        //this.sessions = [];
+  private triggerChat() {
+    this.linphoneNativeEventEmitter.addListener('messageReceived', (event) => {
+      this.emit('messageReceived', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('onChatRoomRead', (event) => {
+      this.emit('onChatRoomRead', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('onMessageSent', (event) => {
+      this.emit('onMessageSent', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('onMessageStateChange', (event) => {
+      this.emit('onMessageStateChange', event);
+    });
+  }
+
+  private triggerRegister() {
+    this.linphoneNativeEventEmitter.addListener('registered', (event: RegisterEvent) => {
+      this.triggerRegisterStateChange('registered', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('unregistered', (event: RegisterEvent) => {
+      this.triggerRegisterStateChange('unregistered', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('registrationFailed', (event: RegisterEvent) => {
+      this.triggerRegisterStateChange('registrationFailed', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('registrationProgress', (event: RegisterEvent) => {
+      this.triggerRegisterStateChange('registrationProgress', event);
+    });
+  }
+
+  private triggerRegisterStateChange(state: string, e: RegisterEvent) {
+    this.emit(state, e);
+    this.emit('registerStateChange', e);
+  }
+
+  private triggerCallStateChanged() {
+    this.linphoneNativeEventEmitter.addListener('newRTCSession', (event) => {
+      this.emit('newRTCSession', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('callStateChanged', (event: CallStateChangedEvent) => {
+      this.emit('callStateChanged', event);
+    });
+  }
+
+  private triggerAudioDeviceChanged() {
+    this.linphoneNativeEventEmitter.addListener('audioDeviceChanged', (event) => {
+      this.emit('audioDeviceChanged', event);
+    });
+  }
+
+  private triggerCalllogUpdated() {
+    this.linphoneNativeEventEmitter.addListener('callLogUpdated', (event) => {
+      this.emit('callLogUpdated', event);
+    });
+  }
+
+  init(): boolean | Promise<boolean> {
+    if (this.isInit) return false;
+    this.isInit = true;
+    return LinphoneSdk.initCore();
+  }
+
+  start(): Promise<boolean> {
+    return LinphoneSdk.start();
+  }
+
+  stop(): Promise<boolean> {
+    return LinphoneSdk.stop();
+  }
+
+  processPushNotification(): Promise<boolean> {
+    return LinphoneSdk.processPushNotification();
+  }
+
+  toggleCoreSpeaker(): Promise<boolean> {
+    return LinphoneSdk.toggleCoreSpeaker();
+  }
+
+  toggleCallSpeaker(callId: string): Promise<boolean> {
+    return LinphoneSdk.toggleCallSpeaker(callId);
+  }
+
+  isCallSpeakerEnabled(callId: string): Promise<boolean> {
+    return LinphoneSdk.isCallSpeakerEnabled(callId);
+  }
+
+  isCoreSpeakerEnabled(): Promise<boolean> {
+    return LinphoneSdk.isCoreSpeakerEnabled();
+  }
+
+  getAudioDevices(): Promise<AudioDevice[]> {
+    return LinphoneSdk.getAudioDevices();
+  }
+
+  getCurrentAudioDevices(): Promise<CurrentAudioDevices> {
+    return LinphoneSdk.getCurrentAudioDevices();
+  }
+
+  setAudioDeviceByType(type: AudioDeviceKind): Promise<boolean> {
+    return LinphoneSdk.setAudioDeviceByType(type);
+  }
+
+  playDTMF(dtmf: string, duration: number = 1): Promise<boolean> {
+    return LinphoneSdk.playDTMF(dtmf, duration);
+  }
+
+  async getCallLogs(format = true): Promise<GroupedCallLog[] | CallLogEntry[]> {
+    const callLogs = await LinphoneSdk.getCallLogs();
+    if (format) {
+      return CallLog.formatLinphone(callLogs);
     }
+    return callLogs;
+  }
 
-    private triggerChat() {
-        this.linphoneNativeEventEmitter.addListener('messageReceived', (event: registerEvent) => {
-            this.emit('messageReceived', event)
-        });
-
-        this.linphoneNativeEventEmitter.addListener('onChatRoomRead', (event: any) => {
-            this.emit('onChatRoomRead', event)
-        });
-
-        this.linphoneNativeEventEmitter.addListener('onMessageSent', (event: any) => {
-            this.emit('onMessageSent', event)
-        });
-
-        this.linphoneNativeEventEmitter.addListener('onMessageStateChange', (event: any) => {
-            this.emit('onMessageStateChange', event)
-        });
+  removeCallLog = async (callLogItem: GroupedCallLog): Promise<boolean> => {
+    const result = await LinphoneSdk.removeCallLog(callLogItem);
+    if (callLogItem?.subLog) {
+      for (const item of callLogItem.subLog) {
+        await LinphoneSdk.removeCallLog(item);
+      }
     }
+    this.emit('callLogUpdated', {});
+    return result;
+  };
 
-    private triggerRegister() {
-        this.linphoneNativeEventEmitter.addListener('registered', (event: registerEvent) => {
-            this.triggerRegisterStateChange('registered', event)
-        });
+  setStunServer(domain: string, port: string): Promise<boolean> {
+    return LinphoneSdk.setStunServer(`${domain}:${port}`);
+  }
 
-        this.linphoneNativeEventEmitter.addListener('unregistered', (event: registerEvent) => {
-            this.triggerRegisterStateChange('unregistered', event)
-        });
+  setUserAgent(name: string, version: string): Promise<boolean> {
+    return LinphoneSdk.setUserAgent({ name, version });
+  }
 
-        this.linphoneNativeEventEmitter.addListener('registrationFailed', (event: registerEvent) => {
-            this.triggerRegisterStateChange('registrationFailed', event)
-        });
+  clearCallLogs = async (): Promise<boolean> => {
+    const result = await LinphoneSdk.clearCallLogs();
+    this.emit('callLogUpdated', {});
+    return result;
+  };
 
-        this.linphoneNativeEventEmitter.addListener('registrationProgress', (event: registerEvent) => {
-            this.triggerRegisterStateChange('registrationProgress', event)
-        });
-    }
+  getDefaultAccount(): Promise<{ username: string; domain: string } | null> {
+    return LinphoneSdk.getDefaultAccount();
+  }
 
-    private triggerRegisterStateChange(state: string, e: any) {
-        this.emit(state, e);
-        this.emit('registerStateChange', e);
-    }
+  setDefaultAccount(userAgent: UserAgent): Promise<boolean> {
+    const { username, domain } = userAgent;
+    return LinphoneSdk.setDefaultAccount({ username, domain });
+  }
 
-    private triggerCallStateChanged() {
-        this.linphoneNativeEventEmitter.addListener('newRTCSession', (event) => {
-            /*console.log('core检测到RCT', event);
-            let session = new Session(this.linphoneNativeEventEmitter, event);
-            event.session = session;
-            this.addSession(session);*/
-            this.emit('newRTCSession', event);
-        });
+  getIdentity(): Promise<string> {
+    return LinphoneSdk.getIdentity();
+  }
 
-        this.linphoneNativeEventEmitter.addListener('callStateChanged', (event) => {
-            console.warn('检测到callStateChanged', event);
-            this.emit('callStateChanged', event);
-        });
-    }
+  isEchoCancellationEnabled(): Promise<boolean> {
+    return LinphoneSdk.isEchoCancellationEnabled();
+  }
 
-    private triggerAudioDeviceChanged() {
+  setEchoCancellationEnabled(isEnabled: boolean): Promise<boolean> {
+    return LinphoneSdk.setEchoCancellationEnabled(isEnabled);
+  }
 
-        //检测不到蓝牙的变化.....
-        // this.linphoneNativeEventEmitter.addListener('audioDevicesListUpdated', (event) => {
-        //     this.emit('audioDevicesListUpdated', event);
-        // });
+  isAdaptiveRateControlEnabled(): Promise<boolean> {
+    return LinphoneSdk.isAdaptiveRateControlEnabled();
+  }
 
-        this.linphoneNativeEventEmitter.addListener('audioDeviceChanged', (event) => {
-            this.emit('audioDeviceChanged', event);
-        });
-    }
+  setAdaptiveRateControlEnabled(isEnabled: boolean): Promise<boolean> {
+    return LinphoneSdk.setAdaptiveRateControlEnabled(isEnabled);
+  }
 
-    private triggerCalllogUpdated() {
-        this.linphoneNativeEventEmitter.addListener('callLogUpdated', (event) => {
-            this.emit('callLogUpdated', event);
-        });
-    }
+  isUseInfoForDtmf(): Promise<boolean> {
+    return LinphoneSdk.isUseInfoForDtmf();
+  }
 
-    init() {
-        if (this.isInit) {
-            return false;
-        }
-        this.isInit = true;
-        return LinphoneSdk.initCore();
-    }
+  setUseInfoForDtmf(isUse: boolean): Promise<boolean> {
+    return LinphoneSdk.setUseInfoForDtmf(isUse);
+  }
 
-    start() {
-        return LinphoneSdk.start();
-    }
+  isUseRfc2833ForDtmf(): Promise<boolean> {
+    return LinphoneSdk.isUseRfc2833ForDtmf();
+  }
 
-    stop() {
-        return LinphoneSdk.stop();
-    }
+  setUseRfc2833ForDtmf(isUse: boolean): Promise<boolean> {
+    return LinphoneSdk.setUseRfc2833ForDtmf(isUse);
+  }
 
-    async processPushNotification() {
-        return LinphoneSdk.processPushNotification();
-    }
+  encryptByPublicKey(publicKey: string, data: string): Promise<string> {
+    return LinphoneSdk.encryptByPublicKey(publicKey, data);
+  }
 
-    async toggleCoreSpeaker() {
-        return LinphoneSdk.toggleCoreSpeaker();
-    }
+  decryptByPublicKey(publicKey: string, data: string): Promise<string> {
+    return LinphoneSdk.decryptByPublicKey(publicKey, data);
+  }
 
-    async toggleCallSpeaker(callId: String) {
-        return LinphoneSdk.toggleCallSpeaker(callId);
-    }
+  getUnreadCount(): Promise<any> {
+    return LinphoneSdk.getUnreadCount();
+  }
 
-    async isCallSpeakerEnabled(callId: String) {
-        return LinphoneSdk.isCallSpeakerEnabled(callId);
-    }
+  getPlaybackGainDb(): Promise<number> {
+    return LinphoneSdk.getPlaybackGainDb();
+  }
 
-    async isCoreSpeakerEnabled() {
-        return LinphoneSdk.isCoreSpeakerEnabled();
-    }
-
-    async getAudioDevices() {
-        return LinphoneSdk.getAudioDevices();
-    }
-
-    async getCurrentAudioDevices() {
-        return LinphoneSdk.getCurrentAudioDevices();
-    }
-
-    async setAudioDeviceByType(type: AudioDeviceType) {
-        return LinphoneSdk.setAudioDeviceByType(type);
-    }
-
-    async playDTMF(dtmf: String, duration: Number = 1) {
-        return LinphoneSdk.playDTMF(dtmf, duration);
-    }
-
-    async getCallLogs(format = true) {
-        let callLogs = await LinphoneSdk.getCallLogs();
-        if (format) {
-            return CallLog.formatLinphone(callLogs);
-        } else {
-            return callLogs;
-        }
-    }
-
-    removeCallLog = async (callLogItem: any) => {
-        const result = await LinphoneSdk.removeCallLog(callLogItem);
-        if (callLogItem?.subLog) {
-            for (let item of callLogItem.subLog) {
-                await LinphoneSdk.removeCallLog(item);
-            }
-        }
-        this.emit("callLogUpdated", {});
-        return result;
-    }
-
-    async setStunServer(domain: String, port: String) {
-        return LinphoneSdk.setStunServer(`${domain}:${port}`);
-    }
-
-    setUserAgent(name: String, version: String) {
-        return LinphoneSdk.setUserAgent({ name, version });
-    }
-
-    clearCallLogs = async () => {
-        const result = await LinphoneSdk.clearCallLogs();
-        this.emit("callLogUpdated", {});
-        return result;
-    }
-
-    getDefaultAccount() {
-        return LinphoneSdk.getDefaultAccount();
-    }
-
-    setDefaultAccount(userAgent: UserAgent) {
-        const { username, domain } = userAgent;
-        return LinphoneSdk.setDefaultAccount({
-            username,
-            domain
-        });
-    }
-
-    getIdentity() {
-        return LinphoneSdk.getIdentity()
-    }
-
-    isEchoCancellationEnabled = () => {
-        return LinphoneSdk.isEchoCancellationEnabled();
-    }
-
-    setEchoCancellationEnabled = (isEnabled: boolean | undefined) => {
-        return LinphoneSdk.setEchoCancellationEnabled(isEnabled);
-    }
-
-    isAdaptiveRateControlEnabled = () => {
-        return LinphoneSdk.isAdaptiveRateControlEnabled();
-    }
-
-    setAdaptiveRateControlEnabled = (isEnabled: boolean | undefined) => {
-        return LinphoneSdk.setAdaptiveRateControlEnabled(isEnabled);
-    }
-
-    isUseInfoForDtmf() {
-        return LinphoneSdk.isUseInfoForDtmf();
-    }
-
-    setUseInfoForDtmf(isUse: boolean) {
-        return LinphoneSdk.setUseInfoForDtmf(isUse);
-    }
-
-    isUseRfc2833ForDtmf() {
-        return LinphoneSdk.isUseRfc2833ForDtmf();
-    }
-
-    setUseRfc2833ForDtmf(isUse: boolean) {
-        return LinphoneSdk.setUseRfc2833ForDtmf(isUse);
-    }
-
-    encryptByPublicKey(publicKey: string, data: string) {
-        return LinphoneSdk.encryptByPublicKey(publicKey, data);
-    }
-
-    decryptByPublicKey(publicKey: string, data: string) {
-        return LinphoneSdk.decryptByPublicKey(publicKey, data);
-    }
-
-    getUnreadCount() {
-        return LinphoneSdk.getUnreadCount();
-    }
-
-    getPlaybackGainDb(){
-        return LinphoneSdk.getPlaybackGainDb();
-    }
-
-    setPlaybackGainDb(val: number){
-        return LinphoneSdk.setPlaybackGainDb(val);
-    }
-
-    /*addSession(session: Session) {
-        this.sessions.unshift(session);
-    }*/
+  setPlaybackGainDb(val: number): Promise<boolean> {
+    return LinphoneSdk.setPlaybackGainDb(val);
+  }
 }
 
 export default new Core();
-
-/*export default {
-    start
-}
-
-function start() {
-    LinphoneSdk.start();
-}*/

@@ -1,7 +1,7 @@
 {
-  "name": "react-native-linphone-sdk",
-  "version": "0.7.11",
-  "description": "test",
+  "name": "react-native-voip",
+  "version": "1.0.0",
+  "description": "React Native VoIP SDK built on Linphone — SIP calls, video, chat, push notifications, call screening, and more",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
   "types": "lib/typescript/index.d.ts",
@@ -41,13 +41,13 @@
     "ios",
     "android"
   ],
-  "repository": "https://github.com/oubushixb/react-native-linphone-sdk",
-  "author": "chenjun <chenjun7878@qq.com> (https://github.com/oubushixb)",
+  "repository": "https://github.com/busanid/react-native-voip",
+  "author": "busanid",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/oubushixb/react-native-linphone-sdk/issues"
+    "url": "https://github.com/busanid/react-native-voip/issues"
   },
-  "homepage": "https://github.com/oubushixb/react-native-linphone-sdk#readme",
+  "homepage": "https://github.com/busanid/react-native-voip#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

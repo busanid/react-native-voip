@@ -1,14 +1,47 @@
 import React from 'react';
 import { NativeModules, Platform } from 'react-native';
-import type { CallOptions } from './Call';
+import type { CallOptions } from './types';
 import Session, { LINPHONE_EVENT } from './Session';
-export { LINPHONE_EVENT }
+export { LINPHONE_EVENT };
 import { LinphoneVideoCaptureTextureView } from './LinphoneVideoCaptureTextureView';
 import EventEmitter from 'events';
 
-import { SipProvider, useSIPClient, useSIPClientStatus, useSIPPermission, SipContext, useTargetAgent, useSipAccount, useSipCore, useSipSetting, useAudioDevices, useChat, useChatRoom, useUnreadCountInfo } from './Hooks';
+import {
+  SipProvider,
+  useSIPClient,
+  useSIPClientStatus,
+  useSIPPermission,
+  SipContext,
+  useTargetAgent,
+  useSipAccount,
+  useSipCore,
+  useSipSetting,
+  useAudioDevices,
+  useChat,
+  useChatRoom,
+  useUnreadCountInfo,
+  usePushNotification,
+  useCallScreening,
+} from './Hooks';
 import CallLog from './CallLog';
-export { SipProvider, useSIPClient, useSIPClientStatus, useSIPPermission, SipContext, useTargetAgent, useSipAccount, useSipCore, useSipSetting, useAudioDevices, useChat, useChatRoom, useUnreadCountInfo };
+
+export {
+  SipProvider,
+  useSIPClient,
+  useSIPClientStatus,
+  useSIPPermission,
+  SipContext,
+  useTargetAgent,
+  useSipAccount,
+  useSipCore,
+  useSipSetting,
+  useAudioDevices,
+  useChat,
+  useChatRoom,
+  useUnreadCountInfo,
+  usePushNotification,
+  useCallScreening,
+};
 
 import Helper from './Helper';
 export { Helper };
@@ -16,11 +49,15 @@ export { Helper };
 import Call from './Call';
 export { Call };
 
-import Core from './Core'
+import Core from './Core';
 export { Core };
 
+export * from './types';
+export * from './PushNotification';
+export * from './CallScreening';
+
 const LINKING_ERROR =
-  `The package 'react-native-linphone-sdk' doesn't seem to be linked. Make sure: \n\n` +
+  `The package 'react-native-voip' doesn't seem to be linked. Make sure: \n\n` +
   Platform.select({ ios: "- You have run 'pod install'\n", default: '' }) +
   '- You rebuilt the app after installing the package\n' +
   '- You are not using Expo Go\n';
@@ -39,62 +76,61 @@ const LinphoneSdk = NativeModules.LinphoneSdk
 const Constants = LinphoneSdk.getConstants();
 export { Constants };
 
+/** @deprecated use Core methods directly */
 export function multiply(a: number, b: number): Promise<number> {
   return LinphoneSdk.multiply(a, b);
 }
 
-export type Configuration = {
-  id: String;
-  username: String;
-  password: String;
-  domain: String;
-  displayName: String;
-  remark: String;
+export interface Configuration {
+  id: string;
+  username: string;
+  password: string;
+  domain: string;
+  displayName: string;
+  remark: string;
   isDefault: boolean;
-
-  proxyDomain: String;
-  transportType: String;
-  stunDomain: String;
-  stunPort: String;
-  stunEnabled: Boolean;
-
-  //pn-provider、pn-param、pn-prid
-  contactParams: String
+  proxyDomain: string;
+  /** 'UDP' | 'TCP' | 'TLS' */
+  transportType: string;
+  stunDomain: string;
+  stunPort: string;
+  stunEnabled: boolean;
+  /** SIP contact URI params for push notification: pn-provider;pn-param;pn-prid */
+  contactParams: string;
 }
 
-export type registerEvent = {
-  originator: String,
-  message: String;
-  session: Session
+export interface RegisterEvent {
+  originator: string;
+  message: string;
+  session: Session;
 }
+
 export class UserAgent extends EventEmitter {
   private configuration: Configuration;
-  //private eventEmitter: NativeEventEmitter;
-  public isRegistered: Boolean;
-  public isProgress: Boolean;
+  public isRegistered: boolean;
+  public isProgress: boolean;
   public error: string;
 
-  public id: String;
-  public username: String;
-  public password: String;
-  public domain: String;
-  public displayName: String;
-  public remark: String;
-  public proxyDomain: String;
-  public transportType: String;
-  public stunDomain: String;
-  public stunPort: String;
-  public stunEnabled: Boolean;
+  public id: string;
+  public username: string;
+  public password: string;
+  public domain: string;
+  public displayName: string;
+  public remark: string;
+  public proxyDomain: string;
+  public transportType: string;
+  public stunDomain: string;
+  public stunPort: string;
+  public stunEnabled: boolean;
   public isDefault: boolean;
 
-  private sessions: Array<Session>;
+  private sessions: Session[];
+
   constructor(configuration: Configuration) {
     super();
-    configuration.isDefault = configuration.isDefault || false
+    configuration.isDefault = configuration.isDefault || false;
 
     this.configuration = configuration;
-    //this.eventEmitter = new NativeEventEmitter(LinphoneSdk);
-    //LinphoneSdk.UserAgent(configuration);
     this.isRegistered = false;
     this.isProgress = false;
     this.error = '';
@@ -115,105 +151,66 @@ export class UserAgent extends EventEmitter {
     this.sessions = [];
 
     LinphoneSdk.userAgentInit(configuration);
-
-
-    // Core.on('newRTCSession', (event) => {
-    //   const { localAddress } = event;
-    //   /*console.debug('Useragent event:', event);
-    //   if(!localAddress || !localAddress.match(`${this.username}@${this.domain}`)) {
-    //     return;
-    //   }*/
-    //   console.debug(`UserAgent 成功监听到newRTCSession事件`, event);
-    //   let session = new Session(this.eventEmitter, event);
-    //   this.addSession(session);
-
-    //   event.session = session;
-    //   this.emit('newRTCSession', event);
-    // });
   }
 
-  getUsername() {
+  getUsername(): string {
     return this.username;
   }
 
-  getConfiguration() {
+  getConfiguration(): Configuration {
     return { ...this.configuration, isDefault: this.isDefault };
   }
 
-  setIsDefault(isDefault: boolean) {
-    //this.configuration.isDefault = isDefault
+  setIsDefault(isDefault: boolean): boolean {
     this.isDefault = isDefault;
     if (isDefault) {
-      Core.setDefaultAccount(this)
+      Core.setDefaultAccount(this);
     }
     return isDefault;
   }
 
-  /*start() {
-    return LinphoneSdk.start();
-  }*/
-
-  async stop() {
+  async stop(): Promise<void> {
     try {
       await this.unregister();
       this.terminateSessions();
       await LinphoneSdk.stop();
     } catch (err) {
-      console.error('停止useragent失败.', err);
+      console.error('Failed to stop UserAgent.', err);
     }
   }
 
-  register() {
-    console.log('this.configuration', this.configuration);
+  register(): Promise<boolean> {
     return LinphoneSdk.registerIt(this.configuration);
   }
 
-  //TODO: 多账户这里需要修改
-  unregister() {
+  unregister(): Promise<boolean> {
     this.isRegistered = false;
     return LinphoneSdk.unregister(this.configuration);
   }
 
-  async getCallLogs(format = true) {
-    let callLogs = await LinphoneSdk.getCallLogs();
+  async getCallLogs(format = true): Promise<any[]> {
+    const callLogs = await LinphoneSdk.getCallLogs();
     if (format) {
       return CallLog.formatLinphone(callLogs);
-    } else {
-      return callLogs;
     }
+    return callLogs;
   }
 
-  async clearCallLogs() {
-    return await LinphoneSdk.clearCallLogs();
+  async clearCallLogs(): Promise<boolean> {
+    return LinphoneSdk.clearCallLogs();
   }
 
-  /*on(eventName: string, callback: (event: registerEvent) => void) {
-    const sub = this.eventEmitter.addListener(eventName, (event) => {
-      console.debug(`成功监听到${eventName}事件`, event);
-      if (eventName == 'newRTCSession') {
-        let session = new Session(this.eventEmitter, event);
-        event.session = session;
-        this.addSession(session);
-      }
-      callback(event);
-    });
-    return sub;
-  }*/
-
-  addSession(session: Session) {
+  addSession(session: Session): void {
     this.sessions.unshift(session);
   }
 
-  async terminateSessions(targetSession?: Session) {
-    if (!this.sessions || !Array.isArray(this.sessions)) {
-      console.error('sessions is not an array');
-      return;
-    }
+  async terminateSessions(targetSession?: Session): Promise<void> {
+    if (!this.sessions || !Array.isArray(this.sessions)) return;
     for (let i = 0; i < this.sessions.length; i++) {
       try {
         const session = this.sessions[i];
         if (targetSession) {
-          if (targetSession.callId == session?.callId) {
+          if (targetSession.callId === session?.callId) {
             await session?.terminate();
             this.sessions.splice(i, 1);
           }
@@ -222,121 +219,70 @@ export class UserAgent extends EventEmitter {
           this.sessions.splice(i, 1);
         }
       } catch (error) {
-        console.error(`结束所有sessions中的某个session失败，${error}`)
+        console.error(`Failed to terminate session: ${error}`);
       }
     }
   }
 
-  async getSession(callId: string) {
-    for (let session of this.sessions) {
-      if (session.callId == callId) {
-        return session
-      }
+  async getSession(callId: string): Promise<Session | false> {
+    for (const session of this.sessions) {
+      if (session.callId === callId) return session;
     }
     return false;
   }
 
-  async call(target: string, options: CallOptions) {
+  async call(target: string, options: CallOptions): Promise<string | undefined> {
     try {
-      /*const { eventHandlers } = options;
-      const sub = this.eventEmitter.addListener('callStateChanged', event => {
-        console.debug('UserAgent的callStateChanged', event);
-        const { eventName } = event;
-        if (eventName == 'OutgoingInit') {
-          eventHandlers.progress(event);
-        }
-        if (eventName == 'Connected') {
-          eventHandlers.confirmed(event);
-        }
-        if (eventName == 'Error') {
-          eventHandlers.failed(event);
-        }
-        if (eventName == 'End') {
-          eventHandlers.ended(event);
-        }
-        if (eventName == 'Released') {
-          eventHandlers.released(event);
-          sub.remove();
-        }
-      });*/
-      return await LinphoneSdk.call(
-        target,
-        options
-      );
+      return await LinphoneSdk.call(target, options);
     } catch (e) {
-      console.error('呼叫失败.', e);
+      console.error('Call failed.', e);
     }
   }
 
-  async updateAccount(newSipConfig: Configuration) {
-    let prevSipConfig = {
+  async updateAccount(newSipConfig: Configuration): Promise<boolean> {
+    const prevSipConfig = {
       username: this.username,
       password: this.password,
-      domain: this.domain
-    }
-    return LinphoneSdk.updateAccount({
-      prevSipConfig,
-      newSipConfig
-    })
+      domain: this.domain,
+    };
+    return LinphoneSdk.updateAccount({ prevSipConfig, newSipConfig });
   }
 
-  async remove() {
-    let prevSipConfig = {
+  async remove(): Promise<boolean> {
+    const prevSipConfig = {
       id: this.id,
       username: this.username,
       password: this.password,
-      domain: this.domain
-    }
-    return LinphoneSdk.remove(prevSipConfig)
+      domain: this.domain,
+    };
+    return LinphoneSdk.remove(prevSipConfig);
   }
 
-  async setContactUriParameters(contactUriParameters: String) {
-    return LinphoneSdk.setContactUriParameters({
-      id: this.id,
-      /*username: this.username,
-      domain: this.domain,*/
-      contactUriParameters
-    })
+  async setContactUriParameters(contactUriParameters: string): Promise<boolean> {
+    return LinphoneSdk.setContactUriParameters({ id: this.id, contactUriParameters });
   }
 
-  getContactUriParameters() {
-    return LinphoneSdk.getContactUriParameters({
-      id: this.id,
-      /*username: this.username,
-      domain: this.domain*/
-    });
+  getContactUriParameters(): Promise<string> {
+    return LinphoneSdk.getContactUriParameters({ id: this.id });
   }
 
-  async setContactParameters(contactParameters: String) {
-    return LinphoneSdk.setContactParameters({
-      id: this.id,
-      /*username: this.username,
-      domain: this.domain,*/
-      contactParameters
-    })
+  async setContactParameters(contactParameters: string): Promise<boolean> {
+    return LinphoneSdk.setContactParameters({ id: this.id, contactParameters });
   }
 
-  getContactParameters() {
-    return LinphoneSdk.getContactParameters({
-      id: this.id,
-      /*username: this.username,
-      domain: this.domain*/
-    })
+  getContactParameters(): Promise<string> {
+    return LinphoneSdk.getContactParameters({ id: this.id });
   }
 }
 
 export class PreviewVideoView extends React.Component {
   render() {
-    return (
-      <LinphoneVideoCaptureTextureView {...this.props} />
-    )
+    return <LinphoneVideoCaptureTextureView {...this.props} />;
   }
 }
 
 export class RemoteVideoView extends React.Component {
   render() {
-    return (
-      <LinphoneVideoCaptureTextureView {...this.props} />
-    )
+    return <LinphoneVideoCaptureTextureView {...this.props} />;
   }
 }
