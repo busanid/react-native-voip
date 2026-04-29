@@ -533,7 +533,9 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
         if(isDefault) {
           core.defaultAccount = account
         }
-        core.videoActivationPolicy.automaticallyAccept = true;
+        val videoPolicy = core.videoActivationPolicy
+        videoPolicy.automaticallyAccept = true
+        core.videoActivationPolicy = videoPolicy
         core.config.setBool("video", "auto_resize_preview_to_keep_ratio", true)
         // We can also register a callback on the Account object
         account.addListener { _, state, message ->
@@ -1395,7 +1397,7 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
       val callId = options.getString("callId") ?: throw Exception("callId没传")
       val call = core.getCallByCallid(callId) ?: throw Exception("无法通过callId:${callId}找到call对象")
 
-      promise.resolve(call.callLog.status)
+      promise.resolve(call.callLog.status.toString())
     } catch(err: Exception) {
       promise.reject("调用Session状态失败", err)
     }
@@ -1738,7 +1740,7 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
   fun deleteChatRoom(options: ReadableMap, promise: Promise){
     try {
       val targetSipUri = options.getString("targetSipUri") ?: throw Exception("没有传输聊天室对象，无法删除")
-      val targetAddress = core.createAddress(targetSipUri)
+      val targetAddress = core.createAddress(targetSipUri) ?: throw Exception("无法解析聊天室目标地址")
       val participants = arrayOf(targetAddress)
       val chatRoom = core.searchChatRoom(null, null, null, participants)
         ?: throw Exception("无法找到聊天对象，删除失败")
@@ -1754,7 +1756,7 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
     try {
       val targetSipUri = options.getString("targetSipUri") ?: throw Exception("没有传输聊天室对象账号")
       val message = options.getString("message") ?: throw Exception("消息内容不能为空")
-      val targetAddress = core.createAddress(targetSipUri)
+      val targetAddress = core.createAddress(targetSipUri) ?: throw Exception("无法解析聊天室目标地址")
       val participants = arrayOf(targetAddress)
       val chatRoom = core.searchChatRoom(null, null, null, participants)
         ?: throw Exception("无法找到聊天室")
@@ -1774,7 +1776,7 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
   fun getChatRoomHistory(options: ReadableMap, promise: Promise) {
     try {
       val targetSipUri = options.getString("targetSipUri") ?: throw Exception("没有传输聊天室对象账号")
-      val targetAddress = core.createAddress(targetSipUri)
+      val targetAddress = core.createAddress(targetSipUri) ?: throw Exception("无法解析聊天室目标地址")
       val participants = arrayOf(targetAddress)
       val chatRoom = core.searchChatRoom(null, null, null, participants)
         ?: throw Exception("无法找到聊天室")
@@ -1842,7 +1844,7 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
   private fun _searchChatRoom(options: ReadableMap): ChatRoom {
     val targetSipUri =
       options.getString("targetSipUri") ?: throw Exception("没有传输聊天室对象账号")
-    val targetAddress = core.createAddress(targetSipUri)
+    val targetAddress = core.createAddress(targetSipUri) ?: throw Exception("无法解析聊天室目标地址")
     val participants = arrayOf(targetAddress)
     val account = core.defaultAccount ?: throw Exception("没有默认账号，无法查找聊天室对象")
     val localAddress = account.params.identityAddress
