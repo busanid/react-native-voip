@@ -1,0 +1,51 @@
+export const __esModule: boolean;
+declare const _default: Core;
+export default _default;
+declare const Core_base: any;
+/** Union of all audio device kinds — use AudioDeviceKind from types.ts for strict typing */
+declare class Core extends Core_base {
+    [x: string]: any;
+    isInit: boolean;
+    linphoneNativeEventEmitter: _reactNative.NativeEventEmitter;
+    triggerChat(): void;
+    triggerRegister(): void;
+    triggerRegisterStateChange(state: any, e: any): void;
+    triggerCallStateChanged(): void;
+    triggerAudioDeviceChanged(): void;
+    triggerCalllogUpdated(): void;
+    init(): any;
+    start(): any;
+    stop(): any;
+    processPushNotification(): any;
+    toggleCoreSpeaker(): any;
+    toggleCallSpeaker(callId: any): any;
+    isCallSpeakerEnabled(callId: any): any;
+    isCoreSpeakerEnabled(): any;
+    getAudioDevices(): any;
+    getCurrentAudioDevices(): any;
+    setAudioDeviceByType(type: any): any;
+    playDTMF(dtmf: any, duration?: number): any;
+    getCallLogs(format?: boolean): Promise<any>;
+    removeCallLog: (callLogItem: any) => Promise<any>;
+    setStunServer(domain: any, port: any): any;
+    setUserAgent(name: any, version: any): any;
+    clearCallLogs: () => Promise<any>;
+    getDefaultAccount(): any;
+    setDefaultAccount(userAgent: any): any;
+    getIdentity(): any;
+    isEchoCancellationEnabled(): any;
+    setEchoCancellationEnabled(isEnabled: any): any;
+    isAdaptiveRateControlEnabled(): any;
+    setAdaptiveRateControlEnabled(isEnabled: any): any;
+    isUseInfoForDtmf(): any;
+    setUseInfoForDtmf(isUse: any): any;
+    isUseRfc2833ForDtmf(): any;
+    setUseRfc2833ForDtmf(isUse: any): any;
+    encryptByPublicKey(publicKey: any, data: any): any;
+    decryptByPublicKey(publicKey: any, data: any): any;
+    getUnreadCount(): any;
+    getPlaybackGainDb(): any;
+    setPlaybackGainDb(val: any): any;
+}
+import _reactNative = require("react-native");
+//# sourceMappingURL=Core.d.ts.map

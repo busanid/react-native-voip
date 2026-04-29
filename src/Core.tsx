@@ -62,6 +62,7 @@ class Core extends EventEmitter {
     this.triggerCalllogUpdated();
     this.triggerAudioDeviceChanged();
     this.triggerChat();
+    this.triggerPushEvents();
   }
 
   private triggerChat() {
@@ -120,6 +121,21 @@ class Core extends EventEmitter {
     });
   }
 
+  private triggerPushEvents() {
+    this.linphoneNativeEventEmitter.addListener('voipPushTokenReceived', (event) => {
+      this.emit('voipPushTokenReceived', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('incomingPushReceived', (event) => {
+      this.emit('incomingPushReceived', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('callkitAnswered', (event) => {
+      this.emit('callkitAnswered', event);
+    });
+    this.linphoneNativeEventEmitter.addListener('callkitEnded', (event) => {
+      this.emit('callkitEnded', event);
+    });
+  }
+
   init(): boolean | Promise<boolean> {
     if (this.isInit) return false;
     this.isInit = true;
@@ -136,6 +152,22 @@ class Core extends EventEmitter {
 
   processPushNotification(): Promise<boolean> {
     return LinphoneSdk.processPushNotification();
+  }
+
+  registerForVoIPPushes(): Promise<void> {
+    return Platform.OS === 'ios' ? LinphoneSdk.registerForVoIPPushes() : Promise.resolve();
+  }
+
+  reportCallEnded(): Promise<void> {
+    return Platform.OS === 'ios' ? LinphoneSdk.reportCallEnded() : Promise.resolve();
+  }
+
+  showIncomingCallNotification(options: { callerName: string; callerNumber?: string; callId?: string }): Promise<boolean> {
+    return Platform.OS === 'android' ? LinphoneSdk.showIncomingCallNotification(options) : Promise.resolve(false);
+  }
+
+  dismissIncomingCallNotification(): Promise<boolean> {
+    return Platform.OS === 'android' ? LinphoneSdk.dismissIncomingCallNotification() : Promise.resolve(false);
   }
 
   toggleCoreSpeaker(): Promise<boolean> {

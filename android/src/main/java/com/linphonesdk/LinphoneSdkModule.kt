@@ -2,15 +2,22 @@ package com.linphonesdk
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.telecom.TelecomManager
 import android.util.Base64
+import androidx.core.app.NotificationCompat
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.linphone.core.*
@@ -55,6 +62,8 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
 
   companion object {
     const val NAME = "LinphoneSdk"
+    private const val INCOMING_CALL_CHANNEL_ID = "voip_incoming_call"
+    private const val INCOMING_CALL_NOTIFICATION_ID = 9001
   }
 
   private val coreListener = object: CoreListenerStub() {
@@ -1298,6 +1307,82 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
       promise.resolve(true)
     } catch(err: Exception) {
       promise.reject("手动接收推送失败.", err)
+    }
+  }
+
+  @ReactMethod
+  fun showIncomingCallNotification(options: ReadableMap, promise: Promise) {
+    try {
+      val context = reactApplicationContext
+      val callerName = options.getString("callerName") ?: "Incoming Call"
+      val callerNumber = options.getString("callerNumber") ?: ""
+      val callId = options.getString("callId") ?: ""
+
+      // Create notification channel (Android 8+)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        val audioAttr = AudioAttributes.Builder()
+          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+          .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+          .build()
+        val channel = NotificationChannel(
+          INCOMING_CALL_CHANNEL_ID,
+          "Incoming Calls",
+          NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+          description = "Incoming VoIP call notifications"
+          lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+          setSound(ringtoneUri, audioAttr)
+          enableVibration(true)
+        }
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(channel)
+      }
+
+      // Intent to open app when tapping the notification
+      val launchIntent = context.packageManager
+        .getLaunchIntentForPackage(context.packageName)
+        ?.apply {
+          flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+          putExtra("incomingCall", true)
+          putExtra("callId", callId)
+        }
+      val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      else
+        PendingIntent.FLAG_UPDATE_CURRENT
+
+      val contentPendingIntent = PendingIntent.getActivity(context, 0, launchIntent, pendingFlags)
+
+      val subtitle = if (callerNumber.isNotEmpty()) callerNumber else "VoIP Call"
+      val notification = NotificationCompat.Builder(context, INCOMING_CALL_CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.ic_menu_call)
+        .setContentTitle(callerName)
+        .setContentText(subtitle)
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setCategory(NotificationCompat.CATEGORY_CALL)
+        .setFullScreenIntent(contentPendingIntent, true)
+        .setContentIntent(contentPendingIntent)
+        .setOngoing(true)
+        .setAutoCancel(false)
+        .build()
+
+      val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      nm.notify(INCOMING_CALL_NOTIFICATION_ID, notification)
+      promise.resolve(true)
+    } catch (err: Exception) {
+      promise.reject("showIncomingCallNotification failed", err)
+    }
+  }
+
+  @ReactMethod
+  fun dismissIncomingCallNotification(promise: Promise) {
+    try {
+      val nm = reactApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      nm.cancel(INCOMING_CALL_NOTIFICATION_ID)
+      promise.resolve(true)
+    } catch (err: Exception) {
+      promise.reject("dismissIncomingCallNotification failed", err)
     }
   }
 

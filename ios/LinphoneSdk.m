@@ -175,6 +175,14 @@ RCT_EXTERN_METHOD(setContactUriParameters:(NSDictionary *)options
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(registerForVoIPPushes:
+                  (RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(reportCallEnded:
+                  (RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;
@@ -190,12 +198,14 @@ RCT_EXTERN_METHOD(setContactUriParameters:(NSDictionary *)options
         @"callStateChanged",
         @"audioDeviceChanged",
         @"callLogUpdated",
-        
-        //这些都没实现，只是为了防止报错
         @"messageReceived",
         @"onChatRoomRead",
         @"onMessageSent",
-        @"onMessageStateChange"
+        @"onMessageStateChange",
+        @"voipPushTokenReceived",
+        @"incomingPushReceived",
+        @"callkitAnswered",
+        @"callkitEnded"
     ];
 }
 

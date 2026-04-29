@@ -1,6 +1,8 @@
 import linphonesw
-//import linphone
 import Foundation
+import PushKit
+import CallKit
+import AVFoundation
 
 enum LinphoneError: Error {
     case defaultError
@@ -12,9 +14,15 @@ class LinphoneSdk: RCTEventEmitter {
     
     var core: Core!
     var coreListener: CoreDelegate!
-  var chatRoomListener: ChatRoomDelegate!
-    
-    public static var shared:LinphoneSdk?
+    var chatRoomListener: ChatRoomDelegate!
+
+    // PushKit + CallKit
+    private var voipPushRegistry: PKPushRegistry?
+    private var callProvider: CXProvider?
+    private let callController = CXCallController()
+    private var pendingCallUUID: UUID?
+
+    public static var shared: LinphoneSdk?
     override init() {
         super.init()
         LinphoneSdk.shared = self
@@ -2018,5 +2026,129 @@ class LinphoneSdk: RCTEventEmitter {
         } catch let error as NSError {
             reject(nil, "调用getContactUriParameters失败", error)
         }
+    }
+
+    // MARK: - PushKit / CallKit
+
+    private func setupCallKit() {
+        guard callProvider == nil else { return }
+        let config = CXProviderConfiguration()
+        config.supportsVideo = true
+        config.maximumCallGroups = 1
+        config.maximumCallsPerCallGroup = 1
+        config.supportedHandleTypes = [.phoneNumber, .generic]
+        callProvider = CXProvider(configuration: config)
+        callProvider?.setDelegate(self, queue: .main)
+    }
+
+    @objc(registerForVoIPPushes:rejecter:)
+    func registerForVoIPPushes(
+        _ resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: RCTPromiseRejectBlock
+    ) {
+        setupCallKit()
+        voipPushRegistry = PKPushRegistry(queue: .main)
+        voipPushRegistry?.delegate = self
+        voipPushRegistry?.desiredPushTypes = [.voIP]
+        resolve(nil)
+    }
+
+    @objc(reportCallEnded:rejecter:)
+    func reportCallEnded(
+        _ resolve: RCTPromiseResolveBlock,
+        rejecter reject: RCTPromiseRejectBlock
+    ) {
+        if let uuid = pendingCallUUID {
+            callProvider?.reportCall(with: uuid, endedAt: nil, reason: .remoteEnded)
+            pendingCallUUID = nil
+        }
+        resolve(nil)
+    }
+}
+
+// MARK: - PKPushRegistryDelegate
+
+extension LinphoneSdk: PKPushRegistryDelegate {
+    func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
+        guard type == .voIP else { return }
+        let token = pushCredentials.token.map { String(format: "%02x", $0) }.joined()
+        sendEventToJS(name: "voipPushTokenReceived", body: ["token": token])
+    }
+
+    func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
+        guard type == .voIP else { completion(); return }
+
+        let uuid = UUID()
+        pendingCallUUID = uuid
+
+        let dict = payload.dictionaryPayload
+        let callerName = dict["caller-name"] as? String
+            ?? dict["display-name"] as? String
+            ?? dict["from-name"] as? String
+            ?? "Unknown"
+        let callerNumber = dict["caller-number"] as? String
+            ?? dict["from"] as? String
+            ?? ""
+
+        // Wake Linphone so the SIP INVITE arrives
+        core?.ensureRegistered()
+
+        // MUST report to CallKit or iOS will block future pushes
+        setupCallKit()
+        let update = CXCallUpdate()
+        update.remoteHandle = CXHandle(
+            type: .generic,
+            value: callerNumber.isEmpty ? callerName : callerNumber
+        )
+        update.localizedCallerName = callerName
+        update.hasVideo = false
+        update.supportsHolding = true
+        update.supportsDTMF = true
+
+        callProvider?.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
+            var body: [String: Any] = dict as? [String: Any] ?? [:]
+            body["callUUID"] = uuid.uuidString
+            if let err = error {
+                body["callkitBlocked"] = true
+                body["error"] = err.localizedDescription
+            }
+            self?.sendEventToJS(name: "incomingPushReceived", body: body)
+            completion()
+        }
+    }
+
+    func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
+        guard type == .voIP else { return }
+        sendEventToJS(name: "voipPushTokenReceived", body: ["token": NSNull()])
+    }
+}
+
+// MARK: - CXProviderDelegate
+
+extension LinphoneSdk: CXProviderDelegate {
+    func providerDidReset(_ provider: CXProvider) {}
+
+    func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        sendEventToJS(name: "callkitAnswered", body: ["callUUID": action.callUUID.uuidString])
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        sendEventToJS(name: "callkitEnded", body: ["callUUID": action.callUUID.uuidString])
+        pendingCallUUID = nil
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+        core?.micEnabled = !action.isMuted
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        core?.activateAudioSession(activated: true)
+    }
+
+    func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        core?.activateAudioSession(activated: false)
     }
 }

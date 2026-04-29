@@ -1369,6 +1369,7 @@ export function usePushNotification(agentId: string) {
     return parsePushContactParams(agent.getConfiguration().contactParams ?? '');
   });
 
+  // Register push token with SIP server contact params
   const registerPushToken = useCallback(
     async (config: Parameters<typeof buildPushContactParams>[0]) => {
       if (!agent) {
@@ -1388,7 +1389,44 @@ export function usePushNotification(agentId: string) {
     setPushConfig(null);
   }, [agent]);
 
-  return { pushConfig, registerPushToken, clearPushToken };
+  // iOS only: start PushKit registration — token will arrive via onPushToken
+  const registerForPush = useCallback(async () => {
+    await Core.registerForVoIPPushes();
+  }, []);
+
+  // Android: call this from your FCM service when a push is received
+  const processPushPayload = useCallback(async () => {
+    await Core.processPushNotification();
+  }, []);
+
+  // Android: show system incoming call notification
+  const showIncomingCallNotification = useCallback(
+    async (options: { callerName: string; callerNumber?: string; callId?: string }) => {
+      await Core.showIncomingCallNotification(options);
+    },
+    []
+  );
+
+  // Android: dismiss the incoming call notification (call on answer or decline)
+  const dismissIncomingCallNotification = useCallback(async () => {
+    await Core.dismissIncomingCallNotification();
+  }, []);
+
+  // iOS: call this when user hangs up to dismiss CallKit UI
+  const reportCallEnded = useCallback(async () => {
+    await Core.reportCallEnded();
+  }, []);
+
+  return {
+    pushConfig,
+    registerPushToken,
+    clearPushToken,
+    registerForPush,
+    processPushPayload,
+    showIncomingCallNotification,
+    dismissIncomingCallNotification,
+    reportCallEnded,
+  };
 }
 
 /**
