@@ -57,6 +57,7 @@
     "@evilmartians/lefthook": "^1.2.2",
     "@react-native-community/eslint-config": "^3.0.2",
     "@release-it/conventional-changelog": "^5.0.0",
+    "@tsconfig/react-native": "^3.0.9",
     "@types/jest": "^28.1.2",
     "@types/react": "~17.0.21",
     "@types/react-native": "0.70.0",
@@ -134,8 +135,8 @@
   },
   "dependencies": {
     "react-native-get-random-values": "^1.8.0",
+    "react-native-permissions": "^4.1.5",
     "uuid": "^9.0.0",
-    "zustand": "^4.5.2",
-    "react-native-permissions": "^4.1.5"
+    "zustand": "^4.5.2"
   }
 }

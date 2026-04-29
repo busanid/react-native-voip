@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "react-native-voip": ["./src/index"]
+    }
+  },
+  "extends": "@tsconfig/react-native/tsconfig.json"
+}
