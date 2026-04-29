@@ -1,6 +1,6 @@
 {
   "name": "react-native-voip",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "description": "React Native VoIP SDK built on Linphone — SIP calls, video, chat, push notifications, call screening, and more",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
