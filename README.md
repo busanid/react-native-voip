@@ -45,9 +45,32 @@ cd ios && pod install
 
 ### Android
 
-1. Add the Linphone Maven repository to `android/build.gradle`:
+#### Step 1 — Add Linphone Maven repository
+
+React Native **0.71+** uses `dependencyResolutionManagement` in `settings.gradle`.
+Add the Linphone repo there:
 
 ```gradle
+// android/settings.gradle
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            name "linphone.org maven repository"
+            url "https://linphone.org/maven_repository/"
+            content {
+                includeGroup "org.linphone"
+            }
+        }
+    }
+}
+```
+
+For older React Native (< 0.71) that still uses `allprojects` in `build.gradle`:
+
+```gradle
+// android/build.gradle
 allprojects {
     repositories {
         maven {
@@ -61,13 +84,17 @@ allprojects {
 }
 ```
 
-2. Add the following dependency to your app's `android/app/build.gradle`:
+#### Step 2 — Add media dependency
+
+Add to your app's `android/app/build.gradle`:
 
 ```gradle
 implementation 'androidx.media:media:1.2.0'
 ```
 
-3. Add the required permissions to `AndroidManifest.xml`:
+#### Step 3 — Add permissions
+
+Add to `AndroidManifest.xml`:
 
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
