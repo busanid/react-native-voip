@@ -1,0 +1,1 @@
+{"version":3,"names":["requireNativeComponent","LinphoneVideoCaptureTextureView"],"sourceRoot":"../../src","sources":["LinphoneVideoCaptureTextureView.tsx"],"mappings":"AAAA,SAASA,sBAAsB,QAAQ,cAAc;AAErD,OAAO,MAAMC,+BAA+B,GAAGD,sBAAsB,CAAC,iCAAiC,CAAC"}

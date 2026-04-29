@@ -1,0 +1,1 @@
+{"version":3,"names":["_reactNative","require","LinphoneVideoCaptureTextureView","requireNativeComponent","exports"],"sourceRoot":"../../src","sources":["LinphoneVideoCaptureTextureView.tsx"],"mappings":";;;;;;AAAA,IAAAA,YAAA,GAAAC,OAAA;AAEO,MAAMC,+BAA+B,GAAG,IAAAC,mCAAsB,EAAC,iCAAiC,CAAC;AAACC,OAAA,CAAAF,+BAAA,GAAAA,+BAAA"}
