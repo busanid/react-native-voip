@@ -344,10 +344,6 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
           sendEvent(reactApplicationContext, "callStateChanged", params)
         }
         Call.State.StreamsRunning -> {
-          val wtf = call.currentParams?.receivedFramerate
-          val wtf2 = call.remoteParams?.receivedFramerate
-          val wtf3 = call.params.receivedFramerate
-
           params.putString("eventName", "StreamsRunning")
           sendEvent(reactApplicationContext, "callStateChanged", params)
           // This state indicates the call is active.
@@ -507,10 +503,7 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
         val newNatPolicy = accountParams.natPolicy?.clone() ?: core.createNatPolicy()
         if(stunDomain.isNotEmpty() && stunPort.isNotEmpty() && stunEnabled) {
           val serverDomain = "${stunDomain}"
-          newNatPolicy.isTurnEnabled = true
-          //core.natPolicy?.isIceEnabled = true
-          newNatPolicy.isIceEnabled = true
-          newNatPolicy.stunServer = serverDomain//"${stunDomain}:${stunPort}"
+          newNatPolicy.stunServer = serverDomain
           val authInfo = findTargetAuthInfo("cube", stunDomain)
           if(authInfo == null) {
             core.addAuthInfo(Factory.instance().createAuthInfo("cube", null, "cube", null, null, serverDomain, null))
@@ -523,7 +516,7 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
         accountParams.isRegisterEnabled = false
         //accountParams.isRegisterEnabled = true
         accountParams.pushNotificationAllowed = false
-        accountParams.expires = 30
+        accountParams.expires = 3600
 
         if (!core.isPushNotificationAvailable) {
           core.isPushNotificationAvailable;
@@ -760,15 +753,6 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
         call.params.recordFile = "$recordFilePath.$fileExt"
       }
 
-      val bool = call.currentParams?.isVideoEnabled
-      val boo2 = call.params?.isVideoEnabled
-      val boo3 = call.remoteParams?.isVideoEnabled
-      val boo4 = call.videoStats
-      val boo5 = call.remoteParams?.videoDirection
-      val boo6 = call.remoteParams?.receivedVideoDefinition
-      val boo7 = call.callLog?.isVideoEnabled
-      val boo8 = call.remoteParams?.receivedFramerate
-
       val result = call.accept()
       if(result == 0) {
         promise.resolve(true)
@@ -1003,11 +987,16 @@ class LinphoneSdkModule(reactContext: ReactApplicationContext) :
   fun setAudioDeviceById(id: String, promise: Promise) {
     try {
       core.reloadSoundDevices()
-      for (audioDevice in core.audioDevices) {
-        if(audioDevice.id == id) {
-
-        }
+      val device = core.audioDevices.find { it.id == id }
+        ?: throw Exception("Audio device with id $id not found")
+      if (device.capabilities == AudioDevice.Capabilities.CapabilityRecord) {
+        core.inputAudioDevice = device
+        core.defaultInputAudioDevice = device
+      } else {
+        core.outputAudioDevice = device
+        core.defaultOutputAudioDevice = device
       }
+      promise.resolve(true)
     } catch (err: Exception) {
       promise.reject("使用id设置外放设备失败", err)
     }

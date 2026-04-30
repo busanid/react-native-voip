@@ -53,7 +53,7 @@ export enum LINPHONE_EVENT {
   StreamsRunning = 'StreamsRunning',
   // Hold states
   Pausing = 'Pausing',
-  Paused = 'paused',
+  Paused = 'Paused',
   PausedByRemote = 'PausedByRemote',
   Resuming = 'Resuming',
   // End states — these are emitted on Session EventEmitter
@@ -132,7 +132,7 @@ export default class Session extends EventEmitter {
       }
       if (eventName === 'Resuming') {
         this.isOnHoldResult.local = false;
-        this.isOnHoldResult.remote = false;
+        // remote hold state is controlled independently by PausedByRemote
       }
       if (eventName === 'End') {
         this.endTime = new Date();

@@ -472,7 +472,7 @@ class LinphoneSdk: RCTEventEmitter {
             //accountParams?.natPolicy
             try accountParams.setServeraddress(newValue: proxyAddress)
             accountParams.registerEnabled = false
-            accountParams.expires = 30
+            accountParams.expires = 3600
             
             let account = try core.createAccount(params: accountParams)
             core.addAuthInfo(info: authInfo)
@@ -983,19 +983,23 @@ class LinphoneSdk: RCTEventEmitter {
         }
     }
     
-    private func _isCallSpeakerEnabled(callId: String) -> Bool {
+    private func _isCallSpeakerEnabled(callId: String) throws -> Bool {
         guard let call = core.getCallByCallid(callId: callId) else {
-            fatalError("不存在的callId，无法获取外放状态")
+            throw NSError(domain: "com.linphonesdk", code: -1, userInfo: [NSLocalizedDescriptionKey: "callId not found: \(callId)"])
         }
         return call.outputAudioDevice?.type == AudioDevice.Kind.Speaker
     }
-    
+
     @objc(isCallSpeakerEnabled:withResolver:withRejecter:)
     func isCallSpeakerEnabled(
         callId: String,
         _ resolve:RCTPromiseResolveBlock,rejecter reject:RCTPromiseRejectBlock
     ){
-        resolve(_isCallSpeakerEnabled(callId: callId))
+        do {
+            resolve(try _isCallSpeakerEnabled(callId: callId))
+        } catch let error as NSError {
+            reject(nil, "获取外放状态失败", error)
+        }
     }
     
     @objc(toggleCallSpeaker:withResolver:withRejecter:)
@@ -1004,22 +1008,19 @@ class LinphoneSdk: RCTEventEmitter {
         _ resolve:RCTPromiseResolveBlock,rejecter reject:RCTPromiseRejectBlock
     ){
         do {
-            let speakerEnabled = _isCallSpeakerEnabled(callId: callId)
-            
+            let speakerEnabled = try _isCallSpeakerEnabled(callId: callId)
+
             guard let call = core.getCallByCallid(callId: callId) else {
-                fatalError("不存在的callId，无法修改外放状态")
+                throw NSError(domain: "com.linphonesdk", code: -1, userInfo: [NSLocalizedDescriptionKey: "callId not found: \(callId)"])
             }
             
             for audioDevice in core.audioDevices {
-                if(speakerEnabled && audioDevice.type == AudioDevice.Kind.Microphone) {
+                if(speakerEnabled && audioDevice.type == AudioDevice.Kind.Earpiece) {
                     call.outputAudioDevice = audioDevice
-                    
                     return resolve(false)
                 }
-                
                 if(!speakerEnabled && audioDevice.type == AudioDevice.Kind.Speaker) {
-                    core.outputAudioDevice = audioDevice
-                    
+                    call.outputAudioDevice = audioDevice
                     return resolve(true)
                 }
             }
@@ -1545,9 +1546,11 @@ class LinphoneSdk: RCTEventEmitter {
             let call = core.getCallByCallid(callId: callId)
             if(call == nil) {
                 try throwError(message: "无法通过 callId 找到 call 对象")
+                return
             }
-            if((call?.params?.isRecording) != nil) {
-                try throwError(message: "正在录音中请勿重复调用")
+            if(call?.params?.isRecording == true) {
+                resolve(call?.params?.isRecording)
+                return
             }
             call?.startRecording()
             resolve(call?.params?.isRecording)
@@ -1582,15 +1585,15 @@ class LinphoneSdk: RCTEventEmitter {
             let callId = try processDictionary(
                 dictionary: options, key: "callId"
             ) as! String
-            let call = core.getCallByCallid(callId: callId)
-            if(call == nil) {
+            guard let call = core.getCallByCallid(callId: callId) else {
                 try throwError(message: "无法通过 callId 找到 call 对象")
+                return
             }
-            if((call?.params?.isRecording) != nil) {
-                try throwError(message: "正在录音中请勿重复调用")
+            if(call.params?.isRecording != true) {
+                try throwError(message: "当前call未在录音，无需关闭录音")
             }
-            call?.startRecording()
-            resolve(call?.params?.isRecording)
+            call.stopRecording()
+            resolve(call.params?.isRecording)
         } catch let error as NSError {
             reject(nil, "调用 stopRecording 失败", error)
         }
@@ -1834,6 +1837,20 @@ class LinphoneSdk: RCTEventEmitter {
         do {
             if(core.callsNb == 0) {
                 try throwError(message: "不存在的callId，无法修改保持")
+            }
+            let callId = options["callId"] as! String
+            guard let call = core.getCallByCallid(callId: callId) else {
+                try throwError(message: "通过 callId 找不到 call 对象，无法修改保持")
+                return
+            }
+            if call.state != .Paused && call.state != .Pausing {
+                try call.pause()
+                resolve(true)
+            } else if call.state != .Resuming {
+                try call.resume()
+                resolve(false)
+            } else {
+                resolve(nil)
             }
         } catch let error as NSError {
             reject(nil, "暂停通话失败", error)
